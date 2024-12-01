@@ -4,17 +4,16 @@ import 'flatpickr/dist/flatpickr.min.css';
 import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
 
-const dateInput = document.querySelector('#datetime-picker');
-const btnStart = document.querySelector('button[data-start]');
-const infoTime = {
-  days: document.querySelector('[data-days]'),
-  hours: document.querySelector('[data-hours]'),
-  minutes: document.querySelector('[data-minutes]'),
-  seconds: document.querySelector('[data-seconds]'),
-};
-let userSelectedDate = null;
-let timerId = null;
-btnStart.disabled = true;
+const input = document.querySelector('#datetime-picker');
+const button = document.querySelector('button[data-start]');
+const daysCount = document.querySelector('.value[data-days]');
+const hoursCount = document.querySelector('.value[data-hours]');
+const minutesCount = document.querySelector('.value[data-minutes]');
+const secondsCount = document.querySelector('.value[data-seconds]');
+
+button.setAttribute('disabled', true);
+
+let userSelectedDate;
 
 const options = {
   enableTime: true,
@@ -23,42 +22,36 @@ const options = {
   minuteIncrement: 1,
   onClose(selectedDates) {
     userSelectedDate = selectedDates[0];
-    if (userSelectedDate <= new Date()) {
+    console.log(userSelectedDate);
+    if (userSelectedDate.getTime() <= Date.now()) {
       iziToast.error({
+        title: 'Error',
         message: 'Please choose a date in the future',
         position: 'topRight',
+        backgroundColor: '#ef4040',
+        messageColor: '#ffffff',
+        messageSize: '16px',
+        titleColor: '#ffffff',
       });
-      btnStart.disabled = true;
-    } else {
-      btnStart.disabled = false;
+      button.setAttribute('disabled', true);
+    } else if (userSelectedDate.getTime() > Date.now()) {
+      iziToast.success({
+        title: 'OK',
+        message: `Press Start!`,
+        position: 'topRight',
+        backgroundColor: '#59A10D',
+        messageColor: '#ffffff',
+        messageSize: '16px',
+        titleColor: '#ffffff',
+      });
+      button.removeAttribute('disabled');
     }
   },
 };
 
-const timer = new flatpickr(dateInput, options);
+input.addEventListener('input', flatpickr('#datetime-picker', options));
 
-btnStart.addEventListener('click', () => {
-  if (!userSelectedDate) return;
-  dateInput.disabled = true;
-  btnStart.disabled = true;
-
-  timerId = setInterval(() => {
-    const now = new Date();
-    const leftTime = userSelectedDate - now;
-
-    if (leftTime <= 0) {
-      clearInterval(timerId);
-      updateTimerDisplay(0, 0, 0, 0);
-      dateInput.disabled = false;
-      btnStart.disabled = true;
-      iziToast.success({ message: 'Finish!', position: 'topRight' });
-      return;
-    }
-
-    const { days, hours, minutes, seconds } = convertMs(leftTime);
-    updateTimerDisplay(days, hours, minutes, seconds);
-  }, 1000);
-});
+button.addEventListener('click', startCount);
 
 function convertMs(ms) {
   const second = 1000;
@@ -67,20 +60,46 @@ function convertMs(ms) {
   const day = hour * 24;
 
   const days = Math.floor(ms / day);
+
   const hours = Math.floor((ms % day) / hour);
+
   const minutes = Math.floor(((ms % day) % hour) / minute);
+
   const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
   return { days, hours, minutes, seconds };
 }
 
-function addLeadingZero(value) {
-  return String(value).padStart(2, '0');
-}
+const addLeadingZero = num => num.toString().padStart(2, '0');
 
-function updateTimerDisplay(days, hours, minutes, seconds) {
-  infoTime.days.textContent = addLeadingZero(days);
-  infoTime.hours.textContent = addLeadingZero(hours);
-  infoTime.minutes.textContent = addLeadingZero(minutes);
-  infoTime.seconds.textContent = addLeadingZero(seconds);
+function startCount() {
+  button.setAttribute('disabled', true);
+  const timer = setInterval(() => {
+    const currentDate = new Date();
+    const targetDate = new Date(input.value);
+    const timeInterval = targetDate - currentDate;
+
+    const { days, hours, minutes, seconds } = convertMs(timeInterval);
+
+    if (timeInterval <= 0) {
+      input.removeAttribute('disabled');
+      return;
+    }
+
+    input.setAttribute('disabled', true);
+
+    daysCount.textContent = addLeadingZero(days);
+    hoursCount.textContent = addLeadingZero(hours);
+    minutesCount.textContent = addLeadingZero(minutes);
+    secondsCount.textContent = addLeadingZero(seconds);
+
+    const timerFinished = [days, hours, minutes, seconds].every(
+      value => value === 0
+    );
+
+    if (timerFinished) {
+      clearInterval(timer);
+      input.disabled = false;
+    }
+  }, 1000);
 }
